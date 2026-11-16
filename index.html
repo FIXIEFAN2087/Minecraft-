@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>MiniCraft 3D Mobile</title>
+<title>MiniCraft 3D Mobile — Выживание и Крафт</title>
 <style>
 * {
     margin: 0;
@@ -25,6 +25,7 @@ canvas {
     width: 100%;
     height: 100%;
 }
+/* Прицел по центру экрана */
 #crosshair {
     position: fixed;
     top: 50%;
@@ -38,66 +39,44 @@ canvas {
 #crosshair::before, #crosshair::after {
     content: '';
     position: absolute;
-    background: rgba(255, 255, 255, 0.8);
+    background: rgba(255, 255, 255, 0.85);
 }
-#crosshair::before {
-    top: 7px;
-    left: 0;
-    width: 16px;
-    height: 2px;
-}
-#crosshair::after {
-    top: 0;
-    left: 7px;
-    width: 2px;
-    height: 16px;
-}
-#joystick-zone {
+#crosshair::before { top: 7px; left: 0; width: 16px; height: 2px; }
+#crosshair::after { top: 0; left: 7px; width: 2px; height: 16px; }
+
+/* Счетчик FPS */
+#fps-counter {
     position: fixed;
-    bottom: 20px;
-    left: 20px;
-    width: 130px;
-    height: 130px;
-    z-index: 20;
+    top: 8px;
+    left: 8px;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.45);
+    padding: 3px 7px;
+    border-radius: 4px;
+    font-size: 12px;
+    pointer-events: none;
+    z-index: 30;
 }
-#joystick-base {
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.2);
-    border: 2px solid rgba(255, 255, 255, 0.4);
-    position: relative;
-}
-#joystick-stick {
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.7);
-    position: absolute;
-    top: 40px;
-    left: 40px;
-    transition: transform 0.05s linear;
-}
-#jump-btn {
+
+/* Кнопка открытия крафта */
+#craft-open-btn {
     position: fixed;
-    bottom: 35px;
-    right: 30px;
-    width: 75px;
-    height: 75px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.25);
-    border: 2px solid rgba(255, 255, 255, 0.5);
-    color: white;
+    top: 8px;
+    right: 8px;
+    background: rgba(139, 90, 43, 0.85);
+    border: 2px solid #FFD700;
+    color: #fff;
     font-weight: bold;
-    font-size: 14px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 20;
+    font-size: 13px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    z-index: 30;
 }
-#jump-btn:active {
-    background: rgba(255, 255, 255, 0.5);
+#craft-open-btn:active {
+    transform: scale(0.95);
 }
+
+/* Зона поворота камеры */
 #look-zone {
     position: fixed;
     top: 0;
@@ -106,23 +85,238 @@ canvas {
     height: 100%;
     z-index: 15;
 }
-#fps-counter {
+
+/* Виртуальный джойстик */
+#joystick-zone {
     position: fixed;
-    top: 10px;
-    left: 10px;
+    bottom: 65px;
+    left: 20px;
+    width: 120px;
+    height: 120px;
+    z-index: 20;
+}
+#joystick-base {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.18);
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    position: relative;
+}
+#joystick-stick {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.7);
+    position: absolute;
+    top: 35px;
+    left: 35px;
+}
+
+/* Кнопки действий справа */
+.action-btn {
+    position: fixed;
+    right: 20px;
+    width: 66px;
+    height: 66px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.25);
+    border: 2px solid rgba(255, 255, 255, 0.55);
     color: white;
-    background: rgba(0, 0, 0, 0.4);
-    padding: 4px 8px;
+    font-weight: bold;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    z-index: 20;
+}
+.action-btn:active { background: rgba(255, 255, 255, 0.55); }
+#jump-btn { bottom: 65px; }
+#place-btn { bottom: 145px; right: 20px; background: rgba(76, 175, 80, 0.35); }
+#break-btn { bottom: 105px; right: 98px; background: rgba(244, 67, 54, 0.35); }
+
+/* Панель быстрого доступа (Hotbar на 10 слотов) */
+#hotbar {
+    position: fixed;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 3px;
+    background: rgba(0, 0, 0, 0.6);
+    padding: 4px;
+    border-radius: 6px;
+    z-index: 25;
+    max-width: 98vw;
+}
+.slot {
+    width: 31px;
+    height: 31px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
     border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    background: rgba(40, 40, 40, 0.7);
+}
+.slot.active {
+    border-color: #FFD700;
+    transform: scale(1.12);
+    background: rgba(80, 80, 80, 0.9);
+}
+.slot-icon {
+    width: 18px;
+    height: 18px;
+    border: 1px solid rgba(0,0,0,0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+}
+.slot-count {
+    position: absolute;
+    bottom: 1px;
+    right: 2px;
+    font-size: 9px;
+    font-weight: bold;
+    color: #fff;
+    text-shadow: 1px 1px 0 #000;
+}
+
+/* Окно меню крафта */
+#craft-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    z-index: 50;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+}
+#craft-window {
+    background: #2b2b2b;
+    border: 3px solid #777;
+    border-radius: 10px;
+    width: 100%;
+    max-width: 420px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    color: #fff;
+    overflow: hidden;
+}
+#craft-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    background: #1f1f1f;
+    border-bottom: 2px solid #444;
+    font-weight: bold;
+    font-size: 15px;
+}
+#craft-close-btn {
+    background: #c0392b;
+    border: none;
+    color: white;
+    font-weight: bold;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 14px;
+}
+#craft-list {
+    padding: 10px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    touch-action: pan-y;
+}
+.recipe-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #3a3a3a;
+    border: 1px solid #555;
+    border-radius: 6px;
+    padding: 8px 10px;
+    touch-action: pan-y;
+}
+.recipe-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    touch-action: pan-y;
+}
+.recipe-icon {
+    width: 28px;
+    height: 28px;
+    border: 2px solid #111;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    flex-shrink: 0;
+}
+.recipe-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.recipe-title {
+    font-size: 13px;
+    font-weight: bold;
+    color: #FFD700;
+}
+.recipe-cost {
+    font-size: 11px;
+    color: #ccc;
+}
+.craft-do-btn {
+    background: #27ae60;
+    border: none;
+    color: white;
+    font-weight: bold;
+    padding: 7px 12px;
+    border-radius: 5px;
+    font-size: 12px;
+    flex-shrink: 0;
+}
+.craft-do-btn:disabled {
+    background: #555;
+    color: #888;
+}
+.craft-do-btn:not(:disabled):active {
+    transform: scale(0.95);
+}
+
+/* Всплывающее уведомление */
+#toast {
+    position: fixed;
+    top: 48px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.75);
+    color: #FFD700;
+    padding: 5px 12px;
+    border-radius: 12px;
     font-size: 12px;
     pointer-events: none;
-    z-index: 30;
+    opacity: 0;
+    transition: opacity 0.2s;
+    z-index: 40;
 }
 </style>
 </head>
 <body>
 
 <div id="fps-counter">FPS: 60</div>
+<div id="craft-open-btn">КРАФТ</div>
+<div id="toast"></div>
 <div id="crosshair"></div>
 <div id="look-zone"></div>
 
@@ -132,37 +326,146 @@ canvas {
     </div>
 </div>
 
-<div id="jump-btn">ПРЫЖОК</div>
+<div id="break-btn" class="action-btn">ЛОМАТЬ</div>
+<div id="place-btn" class="action-btn">СТАВИТЬ</div>
+<div id="jump-btn" class="action-btn">ПРЫЖОК</div>
+
+<div id="hotbar"></div>
+
+<!-- Модальное окно крафта -->
+<div id="craft-modal">
+    <div id="craft-window">
+        <div id="craft-header">
+            <span>Верстак (Крафт предметов)</span>
+            <button id="craft-close-btn">✕</button>
+        </div>
+        <div id="craft-list"></div>
+    </div>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-// === 1. БАЗОВАЯ НАСТРОЙКА СЦЕНЫ И ОПТИМИЗАЦИЯ ===
+// === 1. НАСТРОЙКА СЦЕНЫ И ОПТИМИЗАЦИЯ ===
 const WORLD_SIZE = 64;
+const WORLD_HEIGHT = 24;
 const HALF_WORLD = WORLD_SIZE / 2;
 const SKY_COLOR = 0x87CEEB;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(SKY_COLOR);
-scene.fog = new THREE.Fog(SKY_COLOR, 18, 42); // Скрываем границы мира
+scene.fog = new THREE.Fog(SKY_COLOR, 16, 40);
 
-const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 60);
-camera.rotation.order = 'YXZ'; // Правильный порядок вращения для FPS-камеры
+const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 55);
+camera.rotation.order = 'YXZ';
 
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); // Ограничение DPI для слабых GPU
-renderer.shadowMap.enabled = false; // Отключаем тени для максимального FPS
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+renderer.shadowMap.enabled = false;
 document.body.appendChild(renderer.domElement);
 
-// === 2. ОСВЕЩЕНИЕ ===
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
-scene.add(ambientLight);
-
-const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
-dirLight.position.set(30, 50, 20);
+scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.55);
+dirLight.position.set(25, 50, 15);
 scene.add(dirLight);
 
-// === 3. ПРОЦЕДУРНАЯ ПИКСЕЛЬНАЯ ТЕКСТУРА (БЕЗ ВНЕШНИХ КАРТИНОК) ===
+// === 2. БАЗА ПРЕДМЕТОВ, БЛОКОВ И РЕЦЕПТОВ КРАФТА ===
+// isBlock: true — можно ставить в мир; false — инструмент/ресурс
+const ITEMS = {
+    1:  { id: 1,  name: 'Земля',      color: 0x8b5a2b, css: '#8b5a2b', isBlock: true },
+    2:  { id: 2,  name: 'Бревно',     color: 0x5c3a21, css: '#5c3a21', isBlock: true },
+    3:  { id: 3,  name: 'Листья',     color: 0x2e8b57, css: '#2e8b57', isBlock: true },
+    4:  { id: 4,  name: 'Камень',     color: 0x808080, css: '#808080', isBlock: true },
+    5:  { id: 5,  name: 'Доски',      color: 0xc29b61, css: '#c29b61', isBlock: true },
+    6:  { id: 6,  name: 'Трава',      color: 0x55aa33, css: '#55aa33', isBlock: true },
+    7:  { id: 7,  name: 'Кирпич',     color: 0xa63a2b, css: '#a63a2b', isBlock: true },
+    8:  { id: 8,  name: 'Верстак',    color: 0x9e6b3b, css: '#9e6b3b', isBlock: true, icon: '🛠️' },
+    9:  { id: 9,  name: 'Палки',      color: 0x7a5230, css: '#7a5230', isBlock: false, icon: '🥢' },
+    10: { id: 10, name: 'Кам. кирка', color: 0x666666, css: '#555555', isBlock: false, icon: '⛏️' }
+};
+
+// Рецепты крафта
+const RECIPES = [
+    { outId: 5,  outCount: 4, req: [{ id: 2, count: 1 }], desc: '1 Бревно → 4 Доски' },
+    { outId: 9,  outCount: 4, req: [{ id: 5, count: 2 }], desc: '2 Доски → 4 Палки' },
+    { outId: 8,  outCount: 1, req: [{ id: 5, count: 4 }], desc: '4 Доски → 1 Верстак' },
+    { outId: 10, outCount: 1, req: [{ id: 4, count: 3 }, { id: 9, count: 2 }], desc: '3 Камня + 2 Палки → Быстрая добыча' },
+    { outId: 7,  outCount: 2, req: [{ id: 1, count: 2 }, { id: 4, count: 2 }], desc: '2 Земли + 2 Камня → 2 Кирпича' },
+    { outId: 6,  outCount: 2, req: [{ id: 1, count: 1 }, { id: 3, count: 1 }], desc: '1 Земля + 1 Листья → 2 Дерна' }
+];
+
+// Инвентарь (10 слотов хотбара: { id, count })
+const inventory = [
+    { id: 1, count: 10 }, // Земля
+    { id: 2, count: 4 },  // Бревно
+    { id: 5, count: 8 },  // Доски
+    { id: 4, count: 6 },  // Камень
+    { id: 3, count: 5 },  // Листья
+    null, null, null, null, null
+];
+
+let selectedSlot = 0;
+
+// Уведомления на экране
+let toastTimer = null;
+function showToast(text) {
+    const el = document.getElementById('toast');
+    el.textContent = text;
+    el.style.opacity = '1';
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.style.opacity = '0'; }, 1600);
+}
+
+// Добавление предмета в инвентарь
+function addItem(itemId, amount = 1) {
+    // Сначала ищем существующий стак
+    for (let i = 0; i < inventory.length; i++) {
+        if (inventory[i] && inventory[i].id === itemId && inventory[i].count < 64) {
+            const space = 64 - inventory[i].count;
+            const add = Math.min(space, amount);
+            inventory[i].count += add;
+            amount -= add;
+            if (amount <= 0) {
+                renderHotbar();
+                return true;
+            }
+        }
+    }
+    // Ищем пустой слот
+    for (let i = 0; i < inventory.length; i++) {
+        if (!inventory[i]) {
+            inventory[i] = { id: itemId, count: amount };
+            renderHotbar();
+            return true;
+        }
+    }
+    showToast('Инвентарь полон!');
+    return false;
+}
+
+// Подсчет общего количества предмета в инвентаре
+function countItem(itemId) {
+    let total = 0;
+    for (let slot of inventory) {
+        if (slot && slot.id === itemId) total += slot.count;
+    }
+    return total;
+}
+
+// Списание ресурсов при крафте
+function consumeItem(itemId, amount) {
+    for (let i = 0; i < inventory.length; i++) {
+        if (inventory[i] && inventory[i].id === itemId) {
+            const take = Math.min(inventory[i].count, amount);
+            inventory[i].count -= take;
+            amount -= take;
+            if (inventory[i].count <= 0) inventory[i] = null;
+            if (amount <= 0) break;
+        }
+    }
+}
+
+// === 3. ПРОЦЕДУРНАЯ ТЕКСТУРА И INSTANCED MESH ===
 function createPixelTexture() {
     const canvas = document.createElement('canvas');
     canvas.width = 16;
@@ -175,121 +478,369 @@ function createPixelTexture() {
             ctx.fillRect(x, y, 1, 1);
         }
     }
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.magFilter = THREE.NearestFilter;
-    texture.minFilter = THREE.NearestFilter;
-    return texture;
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    return tex;
 }
 
-const blockTexture = createPixelTexture();
 const geometry = new THREE.BoxGeometry(1, 1, 1);
-const material = new THREE.MeshLambertMaterial({ map: blockTexture });
+const material = new THREE.MeshLambertMaterial({ map: createPixelTexture() });
 
-// === 4. ГЕНЕРАЦИЯ МИРА 64x64 ЧЕРЕЗ INSTANCED MESH ===
-const heightMap = new Int8Array(WORLD_SIZE * WORLD_SIZE);
-const blocksData = []; // Временный массив для расстановки инстансов
+const worldGrid = new Uint8Array(WORLD_SIZE * WORLD_HEIGHT * WORLD_SIZE);
+const instanceMap = new Int32Array(WORLD_SIZE * WORLD_HEIGHT * WORLD_SIZE).fill(-1);
+const MAX_INSTANCES = 18000;
+const instanceToGridIdx = new Int32Array(MAX_INSTANCES).fill(-1);
+let instanceCount = 0;
 
-const colorGrass = new THREE.Color(0x55aa33);
-const colorDirt = new THREE.Color(0x8b5a2b);
-const colorStone = new THREE.Color(0x7a7a7a);
-const colorWater = new THREE.Color(0x3377cc);
+const instancedMesh = new THREE.InstancedMesh(geometry, material, MAX_INSTANCES);
+instancedMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+scene.add(instancedMesh);
 
-function getTerrainHeight(x, z) {
-    // Плавный ландшафт на основе синусов
-    const nx = x * 0.08;
-    const nz = z * 0.08;
-    const h = Math.sin(nx) * Math.cos(nz) * 3.5 + Math.sin(nx * 0.5 + nz * 0.5) * 2.5;
-    return Math.floor(h) + 5;
+const dummy = new THREE.Object3D();
+const tempColor = new THREE.Color();
+
+function getGridIndex(gx, gy, gz) {
+    if (gx < 0 || gx >= WORLD_SIZE || gy < 0 || gy >= WORLD_HEIGHT || gz < 0 || gz >= WORLD_SIZE) return -1;
+    return (gy * WORLD_SIZE + gz) * WORLD_SIZE + gx;
 }
 
-for (let x = 0; x < WORLD_SIZE; x++) {
-    for (let z = 0; z < WORLD_SIZE; z++) {
-        const h = getTerrainHeight(x, z);
-        heightMap[x * WORLD_SIZE + z] = h;
+function setBlock(gx, gy, gz, blockId) {
+    const gIdx = getGridIndex(gx, gy, gz);
+    if (gIdx === -1) return;
 
-        // Верхний блок (трава или песок/вода в низинах)
-        if (h <= 2) {
-            blocksData.push({ x, y: 2, z, color: colorWater });
-            heightMap[x * WORLD_SIZE + z] = 2;
-        } else {
-            blocksData.push({ x, y: h, z, color: colorGrass });
+    const existingInst = instanceMap[gIdx];
+
+    if (blockId === 0) {
+        worldGrid[gIdx] = 0;
+        if (existingInst !== -1) {
+            dummy.position.set(gx - HALF_WORLD, gy, gz - HALF_WORLD);
+            dummy.scale.set(0, 0, 0);
+            dummy.updateMatrix();
+            instancedMesh.setMatrixAt(existingInst, dummy.matrix);
+            instancedMesh.instanceMatrix.needsUpdate = true;
+            instanceMap[gIdx] = -1;
         }
+        return;
+    }
 
-        // Подземные слои (оптимизировано: рисуем только 2 слоя вниз, чтобы не тратить полигоны внутри земли)
-        if (h > 2) {
-            blocksData.push({ x, y: h - 1, z, color: colorDirt });
-            blocksData.push({ x, y: h - 2, z, color: colorStone });
+    const itemDef = ITEMS[blockId] || ITEMS[1];
+    worldGrid[gIdx] = blockId;
+    tempColor.setHex(itemDef.color);
+
+    if (existingInst !== -1) {
+        dummy.position.set(gx - HALF_WORLD, gy, gz - HALF_WORLD);
+        dummy.scale.set(1, 1, 1);
+        dummy.updateMatrix();
+        instancedMesh.setMatrixAt(existingInst, dummy.matrix);
+        instancedMesh.setColorAt(existingInst, tempColor);
+    } else if (instanceCount < MAX_INSTANCES) {
+        const idx = instanceCount++;
+        dummy.position.set(gx - HALF_WORLD, gy, gz - HALF_WORLD);
+        dummy.scale.set(1, 1, 1);
+        dummy.updateMatrix();
+        instancedMesh.setMatrixAt(idx, dummy.matrix);
+        instancedMesh.setColorAt(idx, tempColor);
+        instanceMap[gIdx] = idx;
+        instanceToGridIdx[idx] = gIdx;
+    }
+
+    instancedMesh.instanceMatrix.needsUpdate = true;
+    if (instancedMesh.instanceColor) instancedMesh.instanceColor.needsUpdate = true;
+}
+
+// === 4. ГЕНЕРАЦИЯ ПЛОСКОГО МИРА С ДЕРЕВЬЯМИ ===
+function generateWorld() {
+    const groundLevel = 4;
+    for (let x = 0; x < WORLD_SIZE; x++) {
+        for (let z = 0; z < WORLD_SIZE; z++) {
+            setBlock(x, 0, z, 4);
+            setBlock(x, 1, z, 4);
+            setBlock(x, 2, z, 1);
+            setBlock(x, 3, z, 1);
+            setBlock(x, groundLevel, z, 6);
+
+            const distFromCenter = Math.hypot(x - HALF_WORLD, z - HALF_WORLD);
+            if (x > 3 && x < WORLD_SIZE - 4 && z > 3 && z < WORLD_SIZE - 4 && distFromCenter > 4) {
+                if (Math.random() < 0.014) {
+                    spawnTree(x, groundLevel + 1, z);
+                }
+            }
         }
     }
 }
 
-const instancedMesh = new THREE.InstancedMesh(geometry, material, blocksData.length);
-const dummy = new THREE.Object3D();
-
-for (let i = 0; i < blocksData.length; i++) {
-    const b = blocksData[i];
-    dummy.position.set(b.x - HALF_WORLD, b.y, b.z - HALF_WORLD);
-    dummy.updateMatrix();
-    instancedMesh.setMatrixAt(i, dummy.matrix);
-    instancedMesh.setColorAt(i, b.color);
+function spawnTree(tx, ty, tz) {
+    const trunkHeight = 3 + Math.floor(Math.random() * 2);
+    for (let y = 0; y < trunkHeight; y++) {
+        setBlock(tx, ty + y, tz, 2);
+    }
+    const leafStart = ty + trunkHeight - 1;
+    for (let lx = tx - 2; lx <= tx + 2; lx++) {
+        for (let lz = tz - 2; lz <= tz + 2; lz++) {
+            for (let ly = leafStart; ly <= leafStart + 2; ly++) {
+                if (Math.abs(lx - tx) === 2 && Math.abs(lz - tz) === 2 && ly === leafStart + 2) continue;
+                if (lx === tx && lz === tz && ly < ty + trunkHeight) continue;
+                setBlock(lx, ly, lz, 3);
+            }
+        }
+    }
 }
 
-instancedMesh.instanceMatrix.needsUpdate = true;
-if (instancedMesh.instanceColor) instancedMesh.instanceColor.needsUpdate = true;
-scene.add(instancedMesh);
+generateWorld();
 
-// === 5. ФИЗИКА И ИГРОК ===
+// === 5. ОТРИСОВКА HOTBAR И ОКНА КРАФТА ===
+const hotbarEl = document.getElementById('hotbar');
+
+function renderHotbar() {
+    hotbarEl.innerHTML = '';
+    for (let i = 0; i < 10; i++) {
+        const slotData = inventory[i];
+        const slotEl = document.createElement('div');
+        slotEl.className = 'slot' + (i === selectedSlot ? ' active' : '');
+
+        if (slotData && slotData.count > 0) {
+            const def = ITEMS[slotData.id];
+            slotEl.innerHTML = `
+                <div class="slot-icon" style="background:${def.css}">${def.icon || ''}</div>
+                <span class="slot-count">${slotData.count}</span>
+            `;
+        }
+
+        const selectHandler = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            selectedSlot = i;
+            renderHotbar();
+            if (inventory[i]) {
+                showToast(ITEMS[inventory[i].id].name);
+            }
+        };
+        slotEl.addEventListener('touchstart', selectHandler, { passive: false });
+        slotEl.addEventListener('mousedown', selectHandler);
+        hotbarEl.appendChild(slotEl);
+    }
+}
+renderHotbar();
+
+// Логика меню крафта
+const craftModal = document.getElementById('craft-modal');
+const craftListEl = document.getElementById('craft-list');
+
+function openCraftMenu() {
+    renderCraftRecipes();
+    craftModal.style.display = 'flex';
+}
+
+function closeCraftMenu() {
+    craftModal.style.display = 'none';
+}
+
+function renderCraftRecipes() {
+    craftListEl.innerHTML = '';
+    RECIPES.forEach(recipe => {
+        const outDef = ITEMS[recipe.outId];
+        let canCraft = true;
+        for (let r of recipe.req) {
+            if (countItem(r.id) < r.count) {
+                canCraft = false;
+                break;
+            }
+        }
+
+        const card = document.createElement('div');
+        card.className = 'recipe-card';
+        card.innerHTML = `
+            <div class="recipe-info">
+                <div class="recipe-icon" style="background:${outDef.css}">${outDef.icon || ''}</div>
+                <div class="recipe-text">
+                    <div class="recipe-title">${outDef.name} (x${recipe.outCount})</div>
+                    <div class="recipe-cost">${recipe.desc}</div>
+                </div>
+            </div>
+            <button class="craft-do-btn" ${canCraft ? '' : 'disabled'}>Создать</button>
+        `;
+
+        const btn = card.querySelector('.craft-do-btn');
+        btn.addEventListener('click', () => {
+            // Повторная проверка ресурсов
+            for (let r of recipe.req) {
+                if (countItem(r.id) < r.count) return;
+            }
+            for (let r of recipe.req) {
+                consumeItem(r.id, r.count);
+            }
+            addItem(recipe.outId, recipe.outCount);
+            renderHotbar();
+            renderCraftRecipes();
+            showToast(`Скрафчено: ${outDef.name} x${recipe.outCount}`);
+        });
+
+        craftListEl.appendChild(card);
+    });
+}
+
+document.getElementById('craft-open-btn').addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    openCraftMenu();
+}, { passive: false });
+document.getElementById('craft-open-btn').addEventListener('click', openCraftMenu);
+
+document.getElementById('craft-close-btn').addEventListener('click', closeCraftMenu);
+craftModal.addEventListener('click', (e) => {
+    if (e.target === craftModal) closeCraftMenu();
+});
+
+// === 6. RAYCASTING (ДОБЫЧА, УСТАНОВКА И ВЗАИМОДЕЙСТВИЕ С ВЕРСТАКОМ) ===
+const raycaster = new THREE.Raycaster();
+raycaster.far = 6.5;
+const centerScreen = new THREE.Vector2(0, 0);
+
+function getTargetBlock() {
+    raycaster.setFromCamera(centerScreen, camera);
+    const hits = raycaster.intersectObject(instancedMesh);
+    for (let i = 0; i < hits.length; i++) {
+        const hit = hits[i];
+        const instId = hit.instanceId;
+        const gIdx = instanceToGridIdx[instId];
+        if (gIdx !== -1 && worldGrid[gIdx] !== 0) {
+            const gx = gIdx % WORLD_SIZE;
+            const gz = Math.floor(gIdx / WORLD_SIZE) % WORLD_SIZE;
+            const gy = Math.floor(gIdx / (WORLD_SIZE * WORLD_SIZE));
+            return { gx, gy, gz, blockId: worldGrid[gIdx], normal: hit.face.normal };
+        }
+    }
+    return null;
+}
+
+function breakBlock() {
+    const target = getTargetBlock();
+    if (!target || target.gy === 0) return;
+
+    const brokenId = target.blockId;
+    setBlock(target.gx, target.gy, target.gz, 0);
+
+    // Дроп в инвентарь (трава выпадает как земля, как в оригинальном Minecraft)
+    const dropId = (brokenId === 6) ? 1 : brokenId;
+    addItem(dropId, 1);
+
+    // Бонус при добыче каменной киркой в руке: шанс получить дополнительный камень
+    const held = inventory[selectedSlot];
+    if (held && held.id === 10 && brokenId === 4 && Math.random() < 0.5) {
+        addItem(4, 1);
+        showToast('Кирка добыла +1 камень!');
+    }
+}
+
+function placeOrInteract() {
+    const target = getTargetBlock();
+    if (!target) return;
+
+    // Если кликнули по установленному Верстаку — открываем меню крафта
+    if (target.blockId === 8) {
+        openCraftMenu();
+        return;
+    }
+
+    const held = inventory[selectedSlot];
+    if (!held || held.count <= 0) return;
+
+    const itemDef = ITEMS[held.id];
+    if (!itemDef || !itemDef.isBlock) {
+        showToast('Этот предмет нельзя поставить');
+        return;
+    }
+
+    const nx = target.gx + Math.round(target.normal.x);
+    const ny = target.gy + Math.round(target.normal.y);
+    const nz = target.gz + Math.round(target.normal.z);
+
+    const worldX = nx - HALF_WORLD;
+    const worldZ = nz - HALF_WORLD;
+    const dx = Math.abs(player.pos.x - worldX);
+    const dz = Math.abs(player.pos.z - worldZ);
+    const footY = player.pos.y - player.height;
+    const headY = player.pos.y;
+
+    const overlapsPlayer = (dx < 0.75 && dz < 0.75 && ny + 0.5 > footY && ny - 0.5 < headY);
+    const gIdx = getGridIndex(nx, ny, nz);
+
+    if (!overlapsPlayer && gIdx !== -1 && worldGrid[gIdx] === 0) {
+        setBlock(nx, ny, nz, held.id);
+        held.count--;
+        if (held.count <= 0) inventory[selectedSlot] = null;
+        renderHotbar();
+    }
+}
+
+// === 7. ФИЗИКА И КОЛЛИЗИИ ИГРОКА ===
 const player = {
-    pos: new THREE.Vector3(0, 15, 0),
+    pos: new THREE.Vector3(0, 8, 0),
     vel: new THREE.Vector3(0, 0, 0),
-    height: 1.7,
-    speed: 6.5,
-    jumpForce: 8.5,
+    height: 1.65,
+    radius: 0.3,
+    speed: 5.5,
+    jumpForce: 8.2,
     gravity: 22.0,
     onGround: false,
     yaw: 0,
     pitch: 0
 };
 
-function getGroundY(worldX, worldZ) {
-    const gx = Math.round(worldX + HALF_WORLD);
-    const gz = Math.round(worldZ + HALF_WORLD);
-    if (gx < 0 || gx >= WORLD_SIZE || gz < 0 || gz >= WORLD_SIZE) {
-        return -10; // За пределами карты
-    }
-    return heightMap[gx * WORLD_SIZE + gz] + 0.5; // +0.5 так как центр блока в целочисленной координате
+function isSolidAt(wx, wy, wz) {
+    const gx = Math.round(wx + HALF_WORLD);
+    const gy = Math.round(wy);
+    const gz = Math.round(wz + HALF_WORLD);
+    const idx = getGridIndex(gx, gy, gz);
+    if (idx === -1) return gy < 0;
+    return worldGrid[idx] !== 0;
 }
 
-// === 6. МОБИЛЬНОЕ УПРАВЛЕНИЕ ===
+function checkPlayerCollision(x, y, z) {
+    const r = player.radius;
+    const minY = y - player.height + 0.05;
+    const maxY = y - 0.1;
+    const checkHeights = [minY, (minY + maxY) * 0.5, maxY];
+
+    for (let h of checkHeights) {
+        if (isSolidAt(x - r, h, z - r) || isSolidAt(x + r, h, z - r) ||
+            isSolidAt(x - r, h, z + r) || isSolidAt(x + r, h, z + r)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// === 8. МОБИЛЬНОЕ УПРАВЛЕНИЕ ===
 let moveInput = { x: 0, y: 0 };
 const joyZone = document.getElementById('joystick-zone');
 const joyStick = document.getElementById('joystick-stick');
-const maxJoyRadius = 40;
+const maxJoyRadius = 38;
 let joyTouchId = null;
 let joyCenter = { x: 0, y: 0 };
 
 joyZone.addEventListener('touchstart', (e) => {
     e.preventDefault();
-    const touch = e.changedTouches[0];
-    joyTouchId = touch.identifier;
+    const t = e.changedTouches[0];
+    joyTouchId = t.identifier;
     const rect = joyZone.getBoundingClientRect();
     joyCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-    updateJoystick(touch.clientX, touch.clientY);
+    updateJoystick(t.clientX, t.clientY);
 }, { passive: false });
 
 joyZone.addEventListener('touchmove', (e) => {
     e.preventDefault();
-    for (let i = 0; i < e.changedTouches.length; i++) {
-        if (e.changedTouches[i].identifier === joyTouchId) {
-            updateJoystick(e.changedTouches[i].clientX, e.changedTouches[i].clientY);
+    for (let t of e.changedTouches) {
+        if (t.identifier === joyTouchId) {
+            updateJoystick(t.clientX, t.clientY);
             break;
         }
     }
 }, { passive: false });
 
 function resetJoystick(e) {
-    for (let i = 0; i < e.changedTouches.length; i++) {
-        if (e.changedTouches[i].identifier === joyTouchId) {
+    for (let t of e.changedTouches) {
+        if (t.identifier === joyTouchId) {
             joyTouchId = null;
             moveInput = { x: 0, y: 0 };
             joyStick.style.transform = `translate(0px, 0px)`;
@@ -300,9 +851,9 @@ function resetJoystick(e) {
 joyZone.addEventListener('touchend', resetJoystick);
 joyZone.addEventListener('touchcancel', resetJoystick);
 
-function updateJoystick(clientX, clientY) {
-    let dx = clientX - joyCenter.x;
-    let dy = clientY - joyCenter.y;
+function updateJoystick(cx, cy) {
+    let dx = cx - joyCenter.x;
+    let dy = cy - joyCenter.y;
     const dist = Math.hypot(dx, dy);
     if (dist > maxJoyRadius) {
         dx = (dx / dist) * maxJoyRadius;
@@ -313,41 +864,43 @@ function updateJoystick(clientX, clientY) {
     moveInput.y = dy / maxJoyRadius;
 }
 
-// Поворот камеры свайпами по правой части экрана
 const lookZone = document.getElementById('look-zone');
 let lookTouchId = null;
 let lastLook = { x: 0, y: 0 };
-const lookSensitivity = 0.0055;
+let tapStart = { x: 0, y: 0, time: 0 };
 
 lookZone.addEventListener('touchstart', (e) => {
     e.preventDefault();
     if (lookTouchId === null) {
-        const touch = e.changedTouches[0];
-        lookTouchId = touch.identifier;
-        lastLook = { x: touch.clientX, y: touch.clientY };
+        const t = e.changedTouches[0];
+        lookTouchId = t.identifier;
+        lastLook = { x: t.clientX, y: t.clientY };
+        tapStart = { x: t.clientX, y: t.clientY, time: performance.now() };
     }
 }, { passive: false });
 
 lookZone.addEventListener('touchmove', (e) => {
     e.preventDefault();
-    for (let i = 0; i < e.changedTouches.length; i++) {
-        const t = e.changedTouches[i];
+    for (let t of e.changedTouches) {
         if (t.identifier === lookTouchId) {
             const dx = t.clientX - lastLook.x;
             const dy = t.clientY - lastLook.y;
             lastLook = { x: t.clientX, y: t.clientY };
-
-            player.yaw -= dx * lookSensitivity;
-            player.pitch -= dy * lookSensitivity;
-            player.pitch = Math.max(-Math.PI / 2.1, Math.min(Math.PI / 2.1, player.pitch));
+            player.yaw -= dx * 0.0055;
+            player.pitch = Math.max(-Math.PI / 2.1, Math.min(Math.PI / 2.1, player.pitch - dy * 0.0055));
             break;
         }
     }
 }, { passive: false });
 
 function endLook(e) {
-    for (let i = 0; i < e.changedTouches.length; i++) {
-        if (e.changedTouches[i].identifier === lookTouchId) {
+    for (let t of e.changedTouches) {
+        if (t.identifier === lookTouchId) {
+            const moveDist = Math.hypot(t.clientX - tapStart.x, t.clientY - tapStart.y);
+            const duration = performance.now() - tapStart.time;
+            if (moveDist < 12 && duration < 250) {
+                breakBlock();
+            }
             lookTouchId = null;
             break;
         }
@@ -356,9 +909,7 @@ function endLook(e) {
 lookZone.addEventListener('touchend', endLook);
 lookZone.addEventListener('touchcancel', endLook);
 
-// Кнопка Прыжок
-const jumpBtn = document.getElementById('jump-btn');
-jumpBtn.addEventListener('touchstart', (e) => {
+document.getElementById('jump-btn').addEventListener('touchstart', (e) => {
     e.preventDefault();
     if (player.onGround) {
         player.vel.y = player.jumpForce;
@@ -366,7 +917,17 @@ jumpBtn.addEventListener('touchstart', (e) => {
     }
 }, { passive: false });
 
-// Поддержка клавиатуры (на случай запуска на ПК)
+document.getElementById('break-btn').addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    breakBlock();
+}, { passive: false });
+
+document.getElementById('place-btn').addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    placeOrInteract();
+}, { passive: false });
+
+// Поддержка ПК (клавиатура и мышь)
 const keys = {};
 window.addEventListener('keydown', (e) => {
     keys[e.code] = true;
@@ -374,17 +935,34 @@ window.addEventListener('keydown', (e) => {
         player.vel.y = player.jumpForce;
         player.onGround = false;
     }
+    if (e.code === 'KeyE' || e.code === 'KeyC') {
+        craftModal.style.display === 'flex' ? closeCraftMenu() : openCraftMenu();
+    }
+    if (e.code.startsWith('Digit')) {
+        const num = parseInt(e.code.replace('Digit', ''));
+        const idx = num === 0 ? 9 : num - 1;
+        if (idx >= 0 && idx < 10) {
+            selectedSlot = idx;
+            renderHotbar();
+        }
+    }
 });
 window.addEventListener('keyup', (e) => keys[e.code] = false);
+window.addEventListener('mousedown', (e) => {
+    if (craftModal.style.display === 'flex') return;
+    if (e.target.tagName !== 'CANVAS' && e.target.id !== 'look-zone') return;
+    if (e.button === 0) breakBlock();
+    if (e.button === 2) placeOrInteract();
+});
+window.addEventListener('contextmenu', e => e.preventDefault());
 
-// === 7. АВТОМАТИЧЕСКИЙ RESIZE ===
+// === 9. АВТО-RESIZE И ГЛАВНЫЙ ЦИКЛ ===
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-// === 8. ИГРОВОЙ ЦИКЛ ===
 let lastTime = performance.now();
 let frames = 0;
 let lastFpsTime = lastTime;
@@ -392,11 +970,9 @@ const fpsEl = document.getElementById('fps-counter');
 
 function animate(now) {
     requestAnimationFrame(animate);
-
-    const dt = Math.min((now - lastTime) / 1000, 0.1); // Защита от скачков при сворачивании
+    const dt = Math.min((now - lastTime) / 1000, 0.08);
     lastTime = now;
 
-    // Счетчик FPS
     frames++;
     if (now - lastFpsTime >= 1000) {
         fpsEl.textContent = `FPS: ${frames}`;
@@ -404,58 +980,52 @@ function animate(now) {
         lastFpsTime = now;
     }
 
-    // Объединяем ввод с джойстика и клавиатуры
-    let inputX = moveInput.x;
-    let inputZ = moveInput.y;
-    if (keys['KeyW'] || keys['ArrowUp']) inputZ = -1;
-    if (keys['KeyS'] || keys['ArrowDown']) inputZ = 1;
-    if (keys['KeyA'] || keys['ArrowLeft']) inputX = -1;
-    if (keys['KeyD'] || keys['ArrowRight']) inputX = 1;
+    // Движение (блокируется, если открыто меню крафта)
+    let inX = 0, inZ = 0;
+    if (craftModal.style.display !== 'flex') {
+        inX = moveInput.x;
+        inZ = moveInput.y;
+        if (keys['KeyW'] || keys['ArrowUp']) inZ = -1;
+        if (keys['KeyS'] || keys['ArrowDown']) inZ = 1;
+        if (keys['KeyA'] || keys['ArrowLeft']) inX = -1;
+        if (keys['KeyD'] || keys['ArrowRight']) inX = 1;
+    }
 
-    // Направление движения относительно взгляда камеры
-    const sinYaw = Math.sin(player.yaw);
-    const cosYaw = Math.cos(player.yaw);
+    const sinY = Math.sin(player.yaw);
+    const cosY = Math.cos(player.yaw);
+    const vx = (inX * cosY + inZ * sinY) * player.speed;
+    const vz = (inZ * cosY - inX * sinY) * player.speed;
 
-    const moveX = (inputX * cosYaw + inputZ * sinYaw) * player.speed;
-    const moveZ = (inputZ * cosYaw - inputX * sinYaw) * player.speed;
-
-    // Простая коллизия со стенами (ступенька высотой > 1.1 блока не проходится)
-    const nextX = player.pos.x + moveX * dt;
-    const nextZ = player.pos.z + moveZ * dt;
-
-    const currentFootY = player.pos.y - player.height;
-    const groundAtNextX = getGroundY(nextX, player.pos.z);
-    const groundAtNextZ = getGroundY(player.pos.x, nextZ);
-
-    // Ограничение границами мира 64x64
     const limit = HALF_WORLD - 1.5;
-    if (Math.abs(nextX) < limit && groundAtNextX <= currentFootY + 1.1) {
+    const nextX = player.pos.x + vx * dt;
+    if (Math.abs(nextX) < limit && !checkPlayerCollision(nextX, player.pos.y, player.pos.z)) {
         player.pos.x = nextX;
     }
-    if (Math.abs(nextZ) < limit && groundAtNextZ <= currentFootY + 1.1) {
+
+    const nextZ = player.pos.z + vz * dt;
+    if (Math.abs(nextZ) < limit && !checkPlayerCollision(player.pos.x, player.pos.y, nextZ)) {
         player.pos.z = nextZ;
     }
 
-    // Гравитация и коллизия с полом
     player.vel.y -= player.gravity * dt;
-    player.pos.y += player.vel.y * dt;
+    const nextY = player.pos.y + player.vel.y * dt;
 
-    const groundY = getGroundY(player.pos.x, player.pos.z);
-    if (player.pos.y - player.height <= groundY) {
-        player.pos.y = groundY + player.height;
+    if (checkPlayerCollision(player.pos.x, nextY, player.pos.z)) {
+        if (player.vel.y < 0) {
+            player.onGround = true;
+            player.pos.y = Math.floor(nextY - player.height) + 0.5 + player.height;
+        }
         player.vel.y = 0;
-        player.onGround = true;
     } else {
+        player.pos.y = nextY;
         player.onGround = false;
     }
 
-    // Если игрок упал за карту — респавн сверху
-    if (player.pos.y < -15) {
-        player.pos.set(0, 15, 0);
+    if (player.pos.y < -10) {
+        player.pos.set(0, 10, 0);
         player.vel.set(0, 0, 0);
     }
 
-    // Обновление позиции и поворота камеры
     camera.position.copy(player.pos);
     camera.rotation.y = player.yaw;
     camera.rotation.x = player.pitch;
