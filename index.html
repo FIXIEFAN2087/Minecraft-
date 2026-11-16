@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>MiniCraft 3D Mobile</title>
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+}
+body, html {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: #87CEEB;
+    font-family: sans-serif;
+}
+canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+#crosshair {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    width: 16px;
+    height: 16px;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 10;
+}
+#crosshair::before, #crosshair::after {
+    content: '';
+    position: absolute;
+    background: rgba(255, 255, 255, 0.8);
+}
+#crosshair::before {
+    top: 7px;
+    left: 0;
+    width: 16px;
+    height: 2px;
+}
+#crosshair::after {
+    top: 0;
+    left: 7px;
+    width: 2px;
+    height: 16px;
+}
+#joystick-zone {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    width: 130px;
+    height: 130px;
+    z-index: 20;
+}
+#joystick-base {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    position: relative;
+}
+#joystick-stick {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.7);
+    position: absolute;
+    top: 40px;
+    left: 40px;
+    transition: transform 0.05s linear;
+}
+#jump-btn {
+    position: fixed;
+    bottom: 35px;
+    right: 30px;
+    width: 75px;
+    height: 75px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.25);
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    color: white;
+    font-weight: bold;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+}
+#jump-btn:active {
+    background: rgba(255, 255, 255, 0.5);
+}
+#look-zone {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 65%;
+    height: 100%;
+    z-index: 15;
+}
+#fps-counter {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    color: white;
+    background: rgba(0, 0, 0, 0.4);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    pointer-events: none;
+    z-index: 30;
+}
+</style>
+</head>
+<body>
+
+<div id="fps-counter">FPS: 60</div>
+<div id="crosshair"></div>
+<div id="look-zone"></div>
+
+<div id="joystick-zone">
+    <div id="joystick-base">
+        <div id="joystick-stick"></div>
+    </div>
+</div>
+
+<div id="jump-btn">ПРЫЖОК</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// === 1. БАЗОВАЯ НАСТРОЙКА СЦЕНЫ И ОПТИМИЗАЦИЯ ===
+const WORLD_SIZE = 64;
+const HALF_WORLD = WORLD_SIZE / 2;
+const SKY_COLOR = 0x87CEEB;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(SKY_COLOR);
+scene.fog = new THREE.Fog(SKY_COLOR, 18, 42); // Скрываем границы мира
+
+const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 60);
+camera.rotation.order = 'YXZ'; // Правильный порядок вращения для FPS-камеры
+
+const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); // Ограничение DPI для слабых GPU
+renderer.shadowMap.enabled = false; // Отключаем тени для максимального FPS
+document.body.appendChild(renderer.domElement);
+
+// === 2. ОСВЕЩЕНИЕ ===
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
+scene.add(ambientLight);
+
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+dirLight.position.set(30, 50, 20);
+scene.add(dirLight);
+
+// === 3. ПРОЦЕДУРНАЯ ПИКСЕЛЬНАЯ ТЕКСТУРА (БЕЗ ВНЕШНИХ КАРТИНОК) ===
+function createPixelTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 16;
+    canvas.height = 16;
+    const ctx = canvas.getContext('2d');
+    for (let x = 0; x < 16; x++) {
+        for (let y = 0; y < 16; y++) {
+            const shade = 225 + Math.floor(Math.random() * 30);
+            ctx.fillStyle = `rgb(${shade},${shade},${shade})`;
+            ctx.fillRect(x, y, 1, 1);
+        }
+    }
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.magFilter = THREE.NearestFilter;
+    texture.minFilter = THREE.NearestFilter;
+    return texture;
+}
+
+const blockTexture = createPixelTexture();
+const geometry = new THREE.BoxGeometry(1, 1, 1);
+const material = new THREE.MeshLambertMaterial({ map: blockTexture });
+
+// === 4. ГЕНЕРАЦИЯ МИРА 64x64 ЧЕРЕЗ INSTANCED MESH ===
+const heightMap = new Int8Array(WORLD_SIZE * WORLD_SIZE);
+const blocksData = []; // Временный массив для расстановки инстансов
+
+const colorGrass = new THREE.Color(0x55aa33);
+const colorDirt = new THREE.Color(0x8b5a2b);
+const colorStone = new THREE.Color(0x7a7a7a);
+const colorWater = new THREE.Color(0x3377cc);
+
+function getTerrainHeight(x, z) {
+    // Плавный ландшафт на основе синусов
+    const nx = x * 0.08;
+    const nz = z * 0.08;
+    const h = Math.sin(nx) * Math.cos(nz) * 3.5 + Math.sin(nx * 0.5 + nz * 0.5) * 2.5;
+    return Math.floor(h) + 5;
+}
+
+for (let x = 0; x < WORLD_SIZE; x++) {
+    for (let z = 0; z < WORLD_SIZE; z++) {
+        const h = getTerrainHeight(x, z);
+        heightMap[x * WORLD_SIZE + z] = h;
+
+        // Верхний блок (трава или песок/вода в низинах)
+        if (h <= 2) {
+            blocksData.push({ x, y: 2, z, color: colorWater });
+            heightMap[x * WORLD_SIZE + z] = 2;
+        } else {
+            blocksData.push({ x, y: h, z, color: colorGrass });
+        }
+
+        // Подземные слои (оптимизировано: рисуем только 2 слоя вниз, чтобы не тратить полигоны внутри земли)
+        if (h > 2) {
+            blocksData.push({ x, y: h - 1, z, color: colorDirt });
+            blocksData.push({ x, y: h - 2, z, color: colorStone });
+        }
+    }
+}
+
+const instancedMesh = new THREE.InstancedMesh(geometry, material, blocksData.length);
+const dummy = new THREE.Object3D();
+
+for (let i = 0; i < blocksData.length; i++) {
+    const b = blocksData[i];
+    dummy.position.set(b.x - HALF_WORLD, b.y, b.z - HALF_WORLD);
+    dummy.updateMatrix();
+    instancedMesh.setMatrixAt(i, dummy.matrix);
+    instancedMesh.setColorAt(i, b.color);
+}
+
+instancedMesh.instanceMatrix.needsUpdate = true;
+if (instancedMesh.instanceColor) instancedMesh.instanceColor.needsUpdate = true;
+scene.add(instancedMesh);
+
+// === 5. ФИЗИКА И ИГРОК ===
+const player = {
+    pos: new THREE.Vector3(0, 15, 0),
+    vel: new THREE.Vector3(0, 0, 0),
+    height: 1.7,
+    speed: 6.5,
+    jumpForce: 8.5,
+    gravity: 22.0,
+    onGround: false,
+    yaw: 0,
+    pitch: 0
+};
+
+function getGroundY(worldX, worldZ) {
+    const gx = Math.round(worldX + HALF_WORLD);
+    const gz = Math.round(worldZ + HALF_WORLD);
+    if (gx < 0 || gx >= WORLD_SIZE || gz < 0 || gz >= WORLD_SIZE) {
+        return -10; // За пределами карты
+    }
+    return heightMap[gx * WORLD_SIZE + gz] + 0.5; // +0.5 так как центр блока в целочисленной координате
+}
+
+// === 6. МОБИЛЬНОЕ УПРАВЛЕНИЕ ===
+let moveInput = { x: 0, y: 0 };
+const joyZone = document.getElementById('joystick-zone');
+const joyStick = document.getElementById('joystick-stick');
+const maxJoyRadius = 40;
+let joyTouchId = null;
+let joyCenter = { x: 0, y: 0 };
+
+joyZone.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    const touch = e.changedTouches[0];
+    joyTouchId = touch.identifier;
+    const rect = joyZone.getBoundingClientRect();
+    joyCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    updateJoystick(touch.clientX, touch.clientY);
+}, { passive: false });
+
+joyZone.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    for (let i = 0; i < e.changedTouches.length; i++) {
+        if (e.changedTouches[i].identifier === joyTouchId) {
+            updateJoystick(e.changedTouches[i].clientX, e.changedTouches[i].clientY);
+            break;
+        }
+    }
+}, { passive: false });
+
+function resetJoystick(e) {
+    for (let i = 0; i < e.changedTouches.length; i++) {
+        if (e.changedTouches[i].identifier === joyTouchId) {
+            joyTouchId = null;
+            moveInput = { x: 0, y: 0 };
+            joyStick.style.transform = `translate(0px, 0px)`;
+            break;
+        }
+    }
+}
+joyZone.addEventListener('touchend', resetJoystick);
+joyZone.addEventListener('touchcancel', resetJoystick);
+
+function updateJoystick(clientX, clientY) {
+    let dx = clientX - joyCenter.x;
+    let dy = clientY - joyCenter.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist > maxJoyRadius) {
+        dx = (dx / dist) * maxJoyRadius;
+        dy = (dy / dist) * maxJoyRadius;
+    }
+    joyStick.style.transform = `translate(${dx}px, ${dy}px)`;
+    moveInput.x = dx / maxJoyRadius;
+    moveInput.y = dy / maxJoyRadius;
+}
+
+// Поворот камеры свайпами по правой части экрана
+const lookZone = document.getElementById('look-zone');
+let lookTouchId = null;
+let lastLook = { x: 0, y: 0 };
+const lookSensitivity = 0.0055;
+
+lookZone.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    if (lookTouchId === null) {
+        const touch = e.changedTouches[0];
+        lookTouchId = touch.identifier;
+        lastLook = { x: touch.clientX, y: touch.clientY };
+    }
+}, { passive: false });
+
+lookZone.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    for (let i = 0; i < e.changedTouches.length; i++) {
+        const t = e.changedTouches[i];
+        if (t.identifier === lookTouchId) {
+            const dx = t.clientX - lastLook.x;
+            const dy = t.clientY - lastLook.y;
+            lastLook = { x: t.clientX, y: t.clientY };
+
+            player.yaw -= dx * lookSensitivity;
+            player.pitch -= dy * lookSensitivity;
+            player.pitch = Math.max(-Math.PI / 2.1, Math.min(Math.PI / 2.1, player.pitch));
+            break;
+        }
+    }
+}, { passive: false });
+
+function endLook(e) {
+    for (let i = 0; i < e.changedTouches.length; i++) {
+        if (e.changedTouches[i].identifier === lookTouchId) {
+            lookTouchId = null;
+            break;
+        }
+    }
+}
+lookZone.addEventListener('touchend', endLook);
+lookZone.addEventListener('touchcancel', endLook);
+
+// Кнопка Прыжок
+const jumpBtn = document.getElementById('jump-btn');
+jumpBtn.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    if (player.onGround) {
+        player.vel.y = player.jumpForce;
+        player.onGround = false;
+    }
+}, { passive: false });
+
+// Поддержка клавиатуры (на случай запуска на ПК)
+const keys = {};
+window.addEventListener('keydown', (e) => {
+    keys[e.code] = true;
+    if (e.code === 'Space' && player.onGround) {
+        player.vel.y = player.jumpForce;
+        player.onGround = false;
+    }
+});
+window.addEventListener('keyup', (e) => keys[e.code] = false);
+
+// === 7. АВТОМАТИЧЕСКИЙ RESIZE ===
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// === 8. ИГРОВОЙ ЦИКЛ ===
+let lastTime = performance.now();
+let frames = 0;
+let lastFpsTime = lastTime;
+const fpsEl = document.getElementById('fps-counter');
+
+function animate(now) {
+    requestAnimationFrame(animate);
+
+    const dt = Math.min((now - lastTime) / 1000, 0.1); // Защита от скачков при сворачивании
+    lastTime = now;
+
+    // Счетчик FPS
+    frames++;
+    if (now - lastFpsTime >= 1000) {
+        fpsEl.textContent = `FPS: ${frames}`;
+        frames = 0;
+        lastFpsTime = now;
+    }
+
+    // Объединяем ввод с джойстика и клавиатуры
+    let inputX = moveInput.x;
+    let inputZ = moveInput.y;
+    if (keys['KeyW'] || keys['ArrowUp']) inputZ = -1;
+    if (keys['KeyS'] || keys['ArrowDown']) inputZ = 1;
+    if (keys['KeyA'] || keys['ArrowLeft']) inputX = -1;
+    if (keys['KeyD'] || keys['ArrowRight']) inputX = 1;
+
+    // Направление движения относительно взгляда камеры
+    const sinYaw = Math.sin(player.yaw);
+    const cosYaw = Math.cos(player.yaw);
+
+    const moveX = (inputX * cosYaw + inputZ * sinYaw) * player.speed;
+    const moveZ = (inputZ * cosYaw - inputX * sinYaw) * player.speed;
+
+    // Простая коллизия со стенами (ступенька высотой > 1.1 блока не проходится)
+    const nextX = player.pos.x + moveX * dt;
+    const nextZ = player.pos.z + moveZ * dt;
+
+    const currentFootY = player.pos.y - player.height;
+    const groundAtNextX = getGroundY(nextX, player.pos.z);
+    const groundAtNextZ = getGroundY(player.pos.x, nextZ);
+
+    // Ограничение границами мира 64x64
+    const limit = HALF_WORLD - 1.5;
+    if (Math.abs(nextX) < limit && groundAtNextX <= currentFootY + 1.1) {
+        player.pos.x = nextX;
+    }
+    if (Math.abs(nextZ) < limit && groundAtNextZ <= currentFootY + 1.1) {
+        player.pos.z = nextZ;
+    }
+
+    // Гравитация и коллизия с полом
+    player.vel.y -= player.gravity * dt;
+    player.pos.y += player.vel.y * dt;
+
+    const groundY = getGroundY(player.pos.x, player.pos.z);
+    if (player.pos.y - player.height <= groundY) {
+        player.pos.y = groundY + player.height;
+        player.vel.y = 0;
+        player.onGround = true;
+    } else {
+        player.onGround = false;
+    }
+
+    // Если игрок упал за карту — респавн сверху
+    if (player.pos.y < -15) {
+        player.pos.set(0, 15, 0);
+        player.vel.set(0, 0, 0);
+    }
+
+    // Обновление позиции и поворота камеры
+    camera.position.copy(player.pos);
+    camera.rotation.y = player.yaw;
+    camera.rotation.x = player.pitch;
+
+    renderer.render(scene, camera);
+}
+
+animate(lastTime);
+</script>
+</body>
+</html>
